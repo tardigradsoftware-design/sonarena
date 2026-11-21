@@ -22,16 +22,21 @@ Kurulanlar:
 | Inter + Montserrat TTF (latin + latin-ext birleşik, tam Türkçe) | npm `@fontsource/*` → woff→ttf | — |
 | espeak-ng Türkçe TTS (`libespeak-ng.so` + veri) | pip `espeakng-loader` | 1.52 |
 | Whisper small CTranslate2 int8 (240 MB, sha256 doğrulamalı) | npm `@skillninja/shortmovie-telop-model-p{0..3}` | — |
+| Chromium 153 headless + NSS stub | npm `@sparticuz/chromium` + `gcc` stub | 153.0.8010.0 |
+| Remotion renderer | npm `remotion` + `@remotion/renderer` | 4.0.545 |
 
 ## Çalışan / çalışmayan
 
 **ÇALIŞIYOR:** FFmpeg render, TTS (espeak-ng tr), STT (faster-whisper tr),
-Pillow ile kare kare animasyon, font/tipografi, parçalı render + concat.
+Pillow ile kare kare animasyon, font/tipografi, parçalı render + concat,
+**headless Chromium screenshot** ve **Remotion render** (NSS stub ile).
 
-**ÇALIŞMIYOR:** Chromium/Playwright/Remotion (`@sparticuz/chromium` indiriliyor
-ama sistemde `libnspr4/libnss3` yok; stub NSS ile ağ servisi çöküyor),
-Manim (`libcairo/libpango` yok, apt kapalı), Piper nöral TTS (ses modelleri
-HF/release CDN'inde), apt paketleri.
+**ÇALIŞMIYOR / SINIRLI:**
+- Chromium'da HTTPS/ağ istekleri (stub NSS kripto yok) → sadece yerel HTML render.
+- Manim (`libcairo/libpango/libffi` yok, apt kapalı, pycairo derlenemiyor).
+- Piper nöral TTS (ses modelleri HF/release CDN'inde, erişim kapalı).
+- apt / deb paketleri (deb.debian.org erişilemez).
+- GPU yok → tüm encode'lar CPU (2 çekirdek).
 
 ## Test çıktıları
 

@@ -98,7 +98,44 @@ if [ -f "$WHDIR/model.bin" ]; then ok "model zaten var"; else
   rm -rf "$tmp"
 fi
 
-# ---------------------------------------------------------------- 5) doğrulama
+
+# ---------------------------------------------------------------- 5) chromium + remotion
+say "Chromium (@sparticuz) + NSS stub + Remotion"
+CRDIR="$ROOT/.tools/chromium"
+mkdir -p "$CRDIR"
+if [ ! -f "$CRDIR/node_modules/@sparticuz/chromium/package.json" ]; then
+  ( cd "$CRDIR" && npm init -y >/dev/null 2>&1 \
+    && npm i -q @sparticuz/chromium puppeteer-core remotion @remotion/cli @remotion/renderer \
+       react react-dom >/dev/null 2>&1 ) && ok "npm paketleri kuruldu" || bad "npm kurulumu başarısız"
+else ok "npm paketleri zaten var"; fi
+
+# NSS stub (apt kapalı; libnspr4/libnss3/libnssutil3 yok)
+NSSDIR="$ROOT/.tools/nss"
+mkdir -p "$NSSDIR"
+if [ -f "$NSSDIR/libnss3.so" ]; then ok "NSS stub zaten var"; else
+  if command -v gcc >/dev/null 2>&1; then
+    ( cd "$ROOT/tools/nss-stub" && gcc -shared -fPIC -Wl,--version-script=ver.map \
+        -o "$NSSDIR/libnss3.so" stub2.c realimpl.c ) \
+      && cp "$NSSDIR/libnss3.so" "$NSSDIR/libnssutil3.so" \
+      && cp "$NSSDIR/libnss3.so" "$NSSDIR/libnspr4.so" && ok "NSS stub derlendi" || bad "stub derlenemedi"
+  else bad "gcc yok"; fi
+fi
+
+# Chromium binary'sini çıkar
+if [ -f "$NSSDIR/chromium" ]; then ok "chromium binary hazır"; else
+  ( cd "$CRDIR" && node -e "
+    const m=require('@sparticuz/chromium'); const c=m.default||m;
+    c.executablePath().then(p=>{ 
+      require('fs').copyFileSync(p,'$NSSDIR/chromium');
+      require('fs').chmodSync('$NSSDIR/chromium',0o755);
+      console.log('    \033[32m✓\033[0m chromium: '+p);
+    }).catch(e=>console.log('    \033[31m✗\033[0m '+e.message));
+  " 2>/dev/null )
+fi
+grep -q "LD_LIBRARY_PATH=\"$NSSDIR" ~/.bashrc 2>/dev/null \
+  || echo "export LD_LIBRARY_PATH=\"$NSSDIR:\$LD_LIBRARY_PATH\"" >> ~/.bashrc
+
+# ---------------------------------------------------------------- 6) doğrulama
 say "Doğrulama"
 # NOT: `cmd | grep -q` + pipefail = SIGPIPE yanlış negatifi. Önce çıktıyı topla.
 ENCODERS=$("$BIN/ffmpeg" -hide_banner -encoders 2>/dev/null)
@@ -109,6 +146,10 @@ case "$ENCODERS" in *aac*) ok "aac";; *) bad "aac yok";; esac
 for f in drawtext subtitles xfade zoompan lut3d overlay; do
   if printf '%s\n' "$FILTERS" | awk '{print $2}' | grep -qx "$f"; then ok "filter:$f"; else bad "filter:$f"; fi
 done
+[ -x "$NSSDIR/chromium" ] && ok "chromium binary" || bad "chromium binary yok"
+if [ -x "$NSSDIR/chromium" ] && LD_LIBRARY_PATH="$NSSDIR" "$NSSDIR/chromium" --version >/dev/null 2>&1; then
+  ok "chromium çalışıyor: $(LD_LIBRARY_PATH=$NSSDIR "$NSSDIR/chromium" --version 2>/dev/null | head -1)"
+else bad "chromium --version başarısız"; fi
 "$PY" -c "
 import ctypes, espeakng_loader as el
 lib=ctypes.CDLL(el.get_library_path()); lib.espeak_Initialize.restype=ctypes.c_int
@@ -124,6 +165,7 @@ cat <<EOF
    python venv    : $VENV/bin/python
    fontlar        : $FONTS
    whisper modeli : $WHDIR  (varsa)
+   chromium       : $NSSDIR/chromium   (LD_LIBRARY_PATH=$NSSDIR)
  Kullanım:
    export PATH="$BIN:\$PATH"
    $PY script.py
