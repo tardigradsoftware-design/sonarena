@@ -1,0 +1,23 @@
+# --- üretim çıktıları / ağır medya (repoya girmez) ---
+test_output/
+.tools/
+*.mp4
+*.mov
+*.wav
+*.png
+!assets/**/*.png
+*.webm
+
+# --- bağımlılıklar ---
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+cache/
+frames/
+
+# --- editör / OS ---
+.DS_Store
+.vscode/
+.idea/
